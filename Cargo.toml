@@ -1,0 +1,74 @@
+[package]
+name = "bevy-tests"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# bevy_editor_pls = "0.2.0"
+# bevy_ecs_tilemap = "0.9.0"
+
+
+[dependencies.bevy]
+version = "0.10.0"
+default-features = false
+features = [
+  "animation",
+  "bevy_asset",
+  # "bevy_audio", # using bevy_kira_audio instead
+  "bevy_gilrs",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "png",
+  "hdr",
+  "ktx2",
+  "zstd",
+  # "vorbis", # using bevy_kira_audio instead
+  "x11",
+  "filesystem_watcher",
+  "android_shared_stdcxx",
+  "tonemapping_luts"
+]
+
+[dependencies.bevy_kira_audio]
+version = "0.15.0"
+default-features = false
+features = [
+  "ogg",
+  "flac",
+  "mp3",
+  "wav",
+]
+
+[dependencies.bevy_egui]
+git = "https://github.com/mvlabat/bevy_egui"
+rev = "0d074fe9c034b665fbdf371636dd6630af064ca6"
+
+[features]
+default = ["fast-compile"]
+fast-compile = ["bevy/dynamic_linking"]
+
+# TODO: check why not working
+# [workspace.metadata.dylint]
+# libraries = [
+#     { git = "https://github.com/MinerSebas/bevy_lint", branch = "main" },
+# ]
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
