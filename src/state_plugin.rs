@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 /// Creates a builder for a state-related system flow Plugin.
 pub fn on_variant<Marker, State>(state_variant: State) -> Builder<Marker, State> {
-    Builder::new(state_variant)
+    Builder::empty(state_variant)
 }
 
 /// Builder for a state-related system flow Plugin.
@@ -15,6 +15,12 @@ pub fn on_variant<Marker, State>(state_variant: State) -> Builder<Marker, State>
 /// OnEnter(state-variant): Startup(once) -> Startup-flush(once) -> Enter -> EnterFlush
 /// Update(state-variant): default flow
 /// OnExit(state-variant): default flow
+// TODO: should there be an optional 'Shutdown' schedule/set? (which would reverse and clear the Startup?)
+//
+// Note: `Mutex`es are used because:
+// - The `Plugin`'s `build` fn uses `&self` and requires it to be `Sync`;
+// - The `App`'s `add_system` methods takes the systems by value;
+// - Those systems don't implement `Clone`.
 pub struct Builder<Marker, State> {
     state_variant: State,
     startup_systems: Mutex<Vec<SystemConfig>>,
@@ -25,22 +31,12 @@ pub struct Builder<Marker, State> {
 }
 
 impl<Marker, State> Builder<Marker, State> {
-    pub fn new(
-        state_variant: State,
-        // startups: impl IntoIterator<Item = SystemConfig>,
-        // enters: impl IntoIterator<Item = SystemConfig>,
-        // updates: impl IntoIterator<Item = SystemConfig>,
-        // exits: SystemConfig,
-    ) -> Self {
+    pub fn empty(state_variant: State) -> Self {
         Self {
             startup_systems: Mutex::new(vec![]),
             enter_systems: Mutex::new(vec![]),
             update_systems: Mutex::new(vec![]),
             exit_systems: Mutex::new(vec![]),
-            // startups: Mutex::new(startups.into_iter().collect()),
-            // enters: Mutex::new(enters.into_iter().collect()),
-            // updates: Mutex::new(updates.into_iter().collect()),
-            // exits: Mutex::new(vec![exits]),
             state_variant,
             _marker: PhantomData,
         }
