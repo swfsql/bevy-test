@@ -11,6 +11,9 @@ fn main() {
         .add_plugin(default_settings::DefaultSettingsPlugin)
         .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
+        //
+        .add_plugin(bevy_egui::EguiPlugin)
+        //
         .add_plugin(hello::HelloPlugin)
         .add_plugin(game::GamePlugin)
         .run();

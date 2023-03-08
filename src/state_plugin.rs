@@ -5,224 +5,85 @@ use bevy::ecs::schedule::{common_conditions, SystemConfig};
 use bevy::prelude::*;
 
 /// Creates a builder for a state-related system flow Plugin.
-pub fn on_variant<Marker, State>(state_variant: State) -> OnVariant<Marker, State> {
-    OnVariant::new(state_variant)
+pub fn on_variant<Marker, State>(state_variant: State) -> Builder<Marker, State> {
+    Builder::new(state_variant)
 }
 
 /// Builder for a state-related system flow Plugin.
-pub struct OnVariant<Marker, State> {
+///
+/// Schedule: Set flow
+/// OnEnter(state-variant): Startup(once) -> Startup-flush(once) -> Enter -> EnterFlush
+/// Update(state-variant): default flow
+/// OnExit(state-variant): default flow
+pub struct Builder<Marker, State> {
     state_variant: State,
+    startup_systems: Mutex<Vec<SystemConfig>>,
+    enter_systems: Mutex<Vec<SystemConfig>>,
+    update_systems: Mutex<Vec<SystemConfig>>,
+    exit_systems: Mutex<Vec<SystemConfig>>,
     _marker: PhantomData<Marker>,
 }
 
-impl<Marker, State> OnVariant<Marker, State> {
-    /// Creates the builder.
-    pub fn new(state_variant: State) -> Self {
+impl<Marker, State> Builder<Marker, State> {
+    pub fn new(
+        state_variant: State,
+        // startups: impl IntoIterator<Item = SystemConfig>,
+        // enters: impl IntoIterator<Item = SystemConfig>,
+        // updates: impl IntoIterator<Item = SystemConfig>,
+        // exits: SystemConfig,
+    ) -> Self {
         Self {
+            startup_systems: Mutex::new(vec![]),
+            enter_systems: Mutex::new(vec![]),
+            update_systems: Mutex::new(vec![]),
+            exit_systems: Mutex::new(vec![]),
+            // startups: Mutex::new(startups.into_iter().collect()),
+            // enters: Mutex::new(enters.into_iter().collect()),
+            // updates: Mutex::new(updates.into_iter().collect()),
+            // exits: Mutex::new(vec![exits]),
             state_variant,
             _marker: PhantomData,
         }
     }
 
-    /// Runs `startup` on the first time that the state "enters" the variant.
+    /// Runs an additional `startup` system on the first time that the state "enters" the variant.
     ///
     /// Runs before the `enter` (which runs *each* time the state "enters" the variant).  
-    /// Runs only once, and also only once, flushes commands before `enter`.
-    pub fn with_startup<M>(self, startup: impl IntoSystemConfig<M>) -> WithStartup<Marker, State> {
-        WithStartup::new(self.state_variant, startup.into_config())
-    }
-
-    /// Indicates there's nothing to setup for the first time in particular that the state "enters" the variant.
-    pub fn skip_startup(self) -> WithStartup<Marker, State> {
-        WithStartup {
-            state_variant: self.state_variant,
-            startups: Mutex::new(vec![]),
-            _marker: self._marker,
-        }
-    }
-}
-
-pub struct WithStartup<Marker, State> {
-    state_variant: State,
-    startups: Mutex<Vec<SystemConfig>>,
-    _marker: PhantomData<Marker>,
-}
-
-impl<Marker, State> WithStartup<Marker, State> {
-    pub fn new(state_variant: State, startup: SystemConfig) -> Self {
-        Self {
-            startups: Mutex::new(vec![startup]),
-            state_variant,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Runs another `startup` on the first time that the state "enters" the variant.
-    ///
-    /// Runs before the `enter` (which runs *each* time the state "enters" the variant).  
-    /// Runs only once, and also only once, flushes commands before `enter`.
+    /// Runs only once, and also only once, flushes commands before the `enter` systems.
     pub fn with_startup<M>(mut self, startup: impl IntoSystemConfig<M>) -> Self {
-        self.startups.get_mut().unwrap().push(startup.into_config());
+        self.startup_systems
+            .get_mut()
+            .unwrap()
+            .push(startup.into_config());
         self
     }
 
-    /// Runs each time the state "enters" the variant.
-    /// Flushes commands after running.
-    // TODO: check if the schedule already flushes
-    pub fn with_enter<M>(self, enter: impl IntoSystemConfig<M>) -> WithEnter<Marker, State> {
-        WithEnter::new(
-            self.state_variant,
-            Mutex::into_inner(self.startups).unwrap(),
-            enter.into_config(),
-        )
-    }
-
-    /// Indicates there's nothing to setup for each time the state "enters" the variant.
-    pub fn skip_enter(self) -> WithEnter<Marker, State> {
-        WithEnter {
-            state_variant: self.state_variant,
-            startups: self.startups,
-            enters: Mutex::new(vec![]),
-            _marker: self._marker,
-        }
-    }
-}
-
-pub struct WithEnter<Marker, State> {
-    state_variant: State,
-    startups: Mutex<Vec<SystemConfig>>,
-    enters: Mutex<Vec<SystemConfig>>,
-    _marker: PhantomData<Marker>,
-}
-
-impl<Marker, State> WithEnter<Marker, State> {
-    pub fn new(
-        state_variant: State,
-        startup: impl IntoIterator<Item = SystemConfig>,
-        enter: SystemConfig,
-    ) -> Self {
-        Self {
-            startups: Mutex::new(startup.into_iter().collect()),
-            enters: Mutex::new(vec![enter]),
-            state_variant,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Runs each time the state "enters" the variant.
-    /// Flushes commands after running.
-    // TODO: check if the schedule already flushes
+    /// Runs an additional `enter` system each time the state "enters" the variant.
+    /// Flushes commands after running `update` systems.
+    // TODO: check if the schedule already flushes by default
     pub fn with_enter<M>(mut self, enter: impl IntoSystemConfig<M>) -> Self {
-        self.enters.get_mut().unwrap().push(enter.into_config());
+        self.enter_systems
+            .get_mut()
+            .unwrap()
+            .push(enter.into_config());
         self
     }
 
-    /// Runs each time the state is "active" in the variant.
-    pub fn with_update<M>(self, update: impl IntoSystemConfig<M>) -> WithUpdate<Marker, State> {
-        WithUpdate::new(
-            self.state_variant,
-            Mutex::into_inner(self.startups).unwrap(),
-            Mutex::into_inner(self.enters).unwrap(),
-            update.into_config(),
-        )
-    }
-
-    /// Indicates there's nothing to run when the state is "active" in the variant.
-    pub fn skip_update(self) -> WithUpdate<Marker, State> {
-        WithUpdate {
-            state_variant: self.state_variant,
-            startups: self.startups,
-            enters: self.enters,
-            updates: Mutex::new(vec![]),
-            _marker: self._marker,
-        }
-    }
-}
-
-pub struct WithUpdate<Marker, State> {
-    state_variant: State,
-    startups: Mutex<Vec<SystemConfig>>,
-    enters: Mutex<Vec<SystemConfig>>,
-    updates: Mutex<Vec<SystemConfig>>,
-    _marker: PhantomData<Marker>,
-}
-
-impl<Marker, State> WithUpdate<Marker, State> {
-    pub fn new(
-        state_variant: State,
-        startup: impl IntoIterator<Item = SystemConfig>,
-        enter: impl IntoIterator<Item = SystemConfig>,
-        update: SystemConfig,
-    ) -> Self {
-        Self {
-            startups: Mutex::new(startup.into_iter().collect()),
-            enters: Mutex::new(enter.into_iter().collect()),
-            updates: Mutex::new(vec![update]),
-            state_variant,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Runs each time the state is "active" in the variant.
+    /// Runs an additional `update` system each time the state is "active" in the variant.
     pub fn with_update<M>(mut self, update: impl IntoSystemConfig<M>) -> Self {
-        self.updates.get_mut().unwrap().push(update.into_config());
+        self.update_systems
+            .get_mut()
+            .unwrap()
+            .push(update.into_config());
         self
     }
 
-    /// Runs each time the state "leaves" the variant.
-    pub fn with_exit<M>(self, exit: impl IntoSystemConfig<M>) -> WithExit<Marker, State> {
-        WithExit::new(
-            self.state_variant,
-            Mutex::into_inner(self.startups).unwrap(),
-            Mutex::into_inner(self.enters).unwrap(),
-            Mutex::into_inner(self.updates).unwrap(),
-            exit.into_config(),
-        )
-    }
-
-    /// Indicates there's nothing to cleanup each time state "leaves" the variant.
-    pub fn skip_exit(self) -> WithExit<Marker, State> {
-        WithExit {
-            state_variant: self.state_variant,
-            startups: self.startups,
-            enters: self.enters,
-            updates: self.updates,
-            exits: Mutex::new(vec![]),
-            _marker: self._marker,
-        }
-    }
-}
-
-pub struct WithExit<Marker, State> {
-    state_variant: State,
-    startups: Mutex<Vec<SystemConfig>>,
-    enters: Mutex<Vec<SystemConfig>>,
-    updates: Mutex<Vec<SystemConfig>>,
-    exits: Mutex<Vec<SystemConfig>>,
-    _marker: PhantomData<Marker>,
-}
-
-impl<Marker, State> WithExit<Marker, State> {
-    pub fn new(
-        state_variant: State,
-        startup: impl IntoIterator<Item = SystemConfig>,
-        enter: impl IntoIterator<Item = SystemConfig>,
-        update: impl IntoIterator<Item = SystemConfig>,
-        exit: SystemConfig,
-    ) -> Self {
-        Self {
-            startups: Mutex::new(startup.into_iter().collect()),
-            enters: Mutex::new(enter.into_iter().collect()),
-            updates: Mutex::new(update.into_iter().collect()),
-            exits: Mutex::new(vec![exit]),
-            state_variant,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Runs each time the state "leaves" the variant.
+    /// Runs an additional `exit` system each time the state "leaves" the variant.
     pub fn with_exit<M>(mut self, exit: impl IntoSystemConfig<M>) -> Self {
-        self.exits.get_mut().unwrap().push(exit.into_config());
+        self.exit_systems
+            .get_mut()
+            .unwrap()
+            .push(exit.into_config());
         self
     }
 }
@@ -235,17 +96,17 @@ pub enum StateSets<S> {
     EnterFlush(PhantomData<S>),
 }
 
-impl<Marker, State> Plugin for WithExit<Marker, State>
+impl<Marker, State> Plugin for Builder<Marker, State>
 where
     Marker: Send + Sync + 'static,
     State: bevy::prelude::States,
 {
     fn build(&self, app: &mut App) {
         let state_variant = self.state_variant.clone();
-        let startups: Vec<_> = std::mem::take(Mutex::lock(&self.startups).unwrap().as_mut());
-        let enters: Vec<_> = std::mem::take(Mutex::lock(&self.enters).unwrap().as_mut());
-        let updates: Vec<_> = std::mem::take(Mutex::lock(&self.updates).unwrap().as_mut());
-        let exits: Vec<_> = std::mem::take(Mutex::lock(&self.exits).unwrap().as_mut());
+        let startups: Vec<_> = std::mem::take(Mutex::lock(&self.startup_systems).unwrap().as_mut());
+        let enters: Vec<_> = std::mem::take(Mutex::lock(&self.enter_systems).unwrap().as_mut());
+        let updates: Vec<_> = std::mem::take(Mutex::lock(&self.update_systems).unwrap().as_mut());
+        let exits: Vec<_> = std::mem::take(Mutex::lock(&self.exit_systems).unwrap().as_mut());
 
         let startup_set = &StateSets::<State>::StartupEnter(PhantomData);
         let startup_flush_set = &StateSets::<State>::StartupEnterFlush(PhantomData);
@@ -263,11 +124,20 @@ where
 
             // only Startup systems
             (true, false) => {
+                // once("startup" set)
+                let once_startup = startup_set.clone().run_if(common_conditions::run_once());
+                // once("startup-flush" set)
+                let once_startup_flush = startup_flush_set
+                    .clone()
+                    .run_if(common_conditions::run_once());
+
+                on_enter_schedule.configure_set(once_startup);
+                on_enter_schedule.configure_set(once_startup_flush);
+
                 // "startup" set -> "startup-flush" set
                 let flush_after_startup = startup_flush_set.clone().after(startup_set.clone());
-                // once("startup" set -> "startup-flush" set)
-                let startup_once = flush_after_startup.run_if(common_conditions::run_once());
-                on_enter_schedule.configure_set(startup_once);
+
+                on_enter_schedule.configure_set(flush_after_startup);
 
                 // "startup-flush" set += flush system
                 let startup_flush = apply_system_buffers.in_set(startup_flush_set.clone());
@@ -287,12 +157,20 @@ where
 
             // both Startup and Enter Systems
             (true, true) => {
+                // once("startup" set)
+                let once_startup = startup_set.clone().run_if(common_conditions::run_once());
+                // once("startup-flush" set)
+                let once_startup_flush = startup_flush_set
+                    .clone()
+                    .run_if(common_conditions::run_once());
+
+                on_enter_schedule.configure_set(once_startup);
+                on_enter_schedule.configure_set(once_startup_flush);
+
                 // "startup" set -> "startup-flush" set
                 let flush_after_startup = startup_flush_set.clone().after(startup_set.clone());
-                // once("startup" set -> "startup-flush" set)
-                let startup_once = flush_after_startup.run_if(common_conditions::run_once());
-                // once("startup" set -> "startup-flush" set) -> "enter" set
-                let startup_before_enter = startup_once.before(enter_set.clone());
+                // ("startup" set -> "startup-flush" set) -> "enter" set
+                let startup_before_enter = flush_after_startup.before(enter_set.clone());
 
                 // "enter" set -> "enter-flush" set
                 let flush_after_enter = enter_flush_set.clone().after(enter_set.clone());
@@ -304,6 +182,7 @@ where
                 let startup_flush = apply_system_buffers.in_set(startup_flush_set.clone());
                 // "enter-flush" set += flush system
                 let enter_flush = apply_system_buffers.in_set(enter_flush_set.clone());
+
                 on_enter_schedule.add_system(startup_flush);
                 on_enter_schedule.add_system(enter_flush);
             }

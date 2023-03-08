@@ -50,7 +50,7 @@ features = [
 
 [dependencies.bevy_egui]
 git = "https://github.com/mvlabat/bevy_egui"
-rev = "0d074fe9c034b665fbdf371636dd6630af064ca6"
+rev = "1a5404661d2b7be268e4146d71399651b51dd452"
 
 [features]
 default = ["fast-compile"]

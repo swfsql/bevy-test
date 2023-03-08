@@ -541,7 +541,7 @@ dependencies = [
 [[package]]
 name = "bevy_egui"
 version = "0.19.0"
-source = "git+https://github.com/mvlabat/bevy_egui?rev=0d074fe9c034b665fbdf371636dd6630af064ca6#0d074fe9c034b665fbdf371636dd6630af064ca6"
+source = "git+https://github.com/mvlabat/bevy_egui?rev=1a5404661d2b7be268e4146d71399651b51dd452#1a5404661d2b7be268e4146d71399651b51dd452"
 dependencies = [
  "arboard",
  "bevy",

@@ -11,9 +11,9 @@ impl Plugin for GamePlugin {
         app.add_state::<AppState>()
             .add_plugin(
                 state_plugin::on_variant::<main_menu::MainMenu, _>(AppState::MainMenu)
-                    .skip_startup()
                     .with_enter(main_menu::enter)
                     .with_update(main_menu::update)
+                    .with_update(main_menu::ui_example_system)
                     .with_exit(main_menu::exit),
             )
             .add_plugin(
@@ -21,6 +21,7 @@ impl Plugin for GamePlugin {
                     .with_startup(in_game::startup)
                     .with_enter(in_game::enter)
                     .with_update(in_game::update)
+                    .with_update(in_game::ui_example_system)
                     .with_exit(in_game::exit),
             );
     }

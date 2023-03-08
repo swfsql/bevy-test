@@ -1,4 +1,7 @@
-use super::*;
+use crate::game::AppState;
+use bevy::prelude::*;
+use bevy::window;
+use bevy_egui::{egui, EguiContext};
 
 pub struct InGame;
 
@@ -51,6 +54,24 @@ pub fn enter(mut commands: Commands, img: Res<ImgHandle>) {
 
 pub fn update() {
     // info!("update");
+}
+
+pub fn ui_example_system(
+    mut egui_ctx: Query<&mut EguiContext, With<window::PrimaryWindow>>,
+    mut app_exit_events: EventWriter<bevy::app::AppExit>,
+    mut next: ResMut<NextState<AppState>>,
+) {
+    egui::Window::new("In-Game Menu").show(egui_ctx.single_mut().get_mut(), |ui| {
+        let back_btn = ui.button("Back To Menu");
+        let quit_btn = ui.button("Quit Game");
+
+        if back_btn.clicked() {
+            next.set(AppState::MainMenu);
+        }
+        if quit_btn.clicked() {
+            app_exit_events.send(bevy::app::AppExit);
+        }
+    });
 }
 
 pub fn exit(mut commands: Commands, mut sprites: ResMut<SpritesInPlay>) {
